@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; padding: 25px; background: #f0f4f8; }
+    .portal-container { max-width: 1000px; background: white; padding: 35px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin: 0 auto; }
+    h2 { color: #1a73e8; text-align: center; border-bottom: 2px solid #e8f0fe; padding-bottom: 10px; }
+    .school-section { background: #e8f0fe; padding: 15px; border-radius: 6px; margin-bottom: 25px; }
+    .school-input { width: 100%; padding: 10px; border: 2px solid #1a73e8; border-radius: 4px; font-size: 16px; box-sizing: border-box; }
+    .item-row { background: #fff; border: 1px solid #dadce0; border-radius: 6px; padding: 15px; margin-bottom: 20px; }
+    .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .field-group { display: flex; flex-direction: column; }
+    label { font-size: 12px; font-weight: bold; color: #5f6368; margin-bottom: 4px; }
+    input[type="text"], input[type="file"] { padding: 6px; border: 1px solid #dadce0; border-radius: 4px; }
+    .submit-btn { background: #1a73e8; color: white; border: none; padding: 15px; border-radius: 4px; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%; margin-top: 15px; }
+    #status { margin-top: 15px; text-align: center; font-weight: bold; font-size: 15px; }
+  </style>
+</head>
+<body>
+
+<div class="portal-container">
+  <h2>🏫 School Data & Tender Document Upload Portal</h2>
+  <form id="uploadForm" onsubmit="event.preventDefault(); collectAndSubmit();">
+    
+    <div class="school-section">
+      <label>School Name (Required):</label>
+      <input type="text" id="schoolName" class="school-input" required placeholder="Type school name...">
+    </div>
+
+    <div id="itemsContainer"></div>
+    <button type="submit" id="submitBtn" class="submit-btn">Submit All Items directly to Sheet</button>
+  </form>
+  <div id="status"></div>
+</div>
+
+<script>
+  var container = document.getElementById('itemsContainer');
+  for (var i = 1; i <= 10; i++) {
+    container.innerHTML += `
+      <div class="item-row">
+        <strong>📦 Item Slot #${i}</strong>
+        <div class="grid-container" style="margin-top:10px;">
+          <div class="field-group"><label>Item Name:</label><input type="text" id="particular_${i}" ${i===1?'required':''}></div>
+          <div class="field-group"><label>Amount:</label><input type="text" id="amount_${i}"></div>
+          <div class="field-group"><label>Tender Name:</label><input type="text" id="tender_${i}"></div>
+          <div class="field-group"><label>Account No:</label><input type="text" id="accNum_${i}"></div>
+          <div class="field-group"><label>PAN:</label><input type="text" id="pan_${i}"></div>
+          <div class="field-group"><label>GST:</label><input type="text" id="gst_${i}"></div>
+          <div class="field-group"><label>Firm Name:</label><input type="text" id="firm_${i}"></div>
+          <div class="field-group"><label>Bank Name:</label><input type="text" id="bank_${i}"></div>
+          <div class="field-group"><label>IFSC Code:</label><input type="text" id="ifsc_${i}"></div>
+          <div class="field-group"><label>Upload File:</label><input type="file" id="file_${i}" accept=".pdf,image/*"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function readFile(fileInput) {
+    return new Promise((resolve) => {
+      if (!fileInput || fileInput.files.length === 0) { resolve(null); return; }
+      var file = fileInput.files[0];
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        resolve({ fileName: file.name, mimeType: file.type, base64: e.target.result.split(',')[1] });
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function collectAndSubmit() {
+    var status = document.getElementById('status');
+    status.style.color = "orange"; status.innerHTML = "Processing files and saving entries...";
+    document.getElementById('submitBtn').disabled = true;
+    
+    var payload = { schoolName: document.getElementById('schoolName').value, items: [] };
+    
+    for (var i = 1; i <= 10; i++) {
+      var partVal = document.getElementById('particular_' + i).value;
+      if (partVal && partVal.trim() !== "") {
+        var filePkg = await readFile(document.getElementById('file_' + i));
+        payload.items.push({
+          particular: partVal, amount: document.getElementById('amount_' + i).value,
+          tender: document.getElementById('tender_' + i).value, accNum: document.getElementById('accNum_' + i).value,
+          pan: document.getElementById('pan_' + i).value, gst: document.getElementById('gst_' + i).value,
+          firm: document.getElementById('firm_' + i).value, bank: document.getElementById('bank_' + i).value,
+          ifsc: document.getElementById('ifsc_' + i).value, fileData: filePkg
+        });
+      }
+    }
+    
+    google.script.run
+      .withSuccessHandler(function(msg) {
+        status.style.color = "green"; status.innerHTML = msg;
+        document.getElementById('uploadForm').reset();
+        document.getElementById('submitBtn').disabled = false;
+      })
+      .withFailureHandler(function(err) {
+        status.style.color = "red"; status.innerHTML = "Error: " + err.toString();
+        document.getElementById('submitBtn').disabled = false;
+      })
+      .saveSchoolData(payload);
+  }
+</script>
+</body>
+</html>
